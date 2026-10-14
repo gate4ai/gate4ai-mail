@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gate4ai/gate4ai-mail/mailtest"
 	"github.com/gate4ai/sdk-go/abi"
 	"github.com/gate4ai/sdk-go/connector"
 	"github.com/gate4ai/sdk-go/hosttest"
-	"github.com/gate4ai/sdk-go/hosttest/mailtest"
 )
 
 const inbound = "From: Evil <evil@attacker.test>\r\nTo: me@example.com\r\nSubject: =?utf-8?q?=D0=A1=D1=87=D1=91=D1=82?=\r\n" +
