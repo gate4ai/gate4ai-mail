@@ -244,7 +244,7 @@ func (c *Mail) list(h *abi.Host, s Settings, a map[string]any) (abi.ExecResult, 
 			out = append(out, msgs[i])
 		}
 	}
-	return abi.ExecResult{Result: map[string]any{"folder": folder, "messages": out}, Source: "email:" + folder}, nil
+	return abi.ExecResult{Structured: map[string]any{"folder": folder, "messages": out}, Source: "email:" + folder}, nil
 }
 
 func (c *Mail) read(h *abi.Host, s Settings, a map[string]any) (abi.ExecResult, error) {
@@ -277,7 +277,7 @@ func (c *Mail) read(h *abi.Host, s Settings, a map[string]any) (abi.ExecResult, 
 	msg["uid"] = uid
 	msg["folder"] = folder
 	src := "email:" + fmt.Sprint(msg["message_id"])
-	return abi.ExecResult{Result: msg, ResultRef: fmt.Sprint(msg["message_id"]), Source: src}, nil
+	return abi.ExecResult{Structured: msg, ResultRef: fmt.Sprint(msg["message_id"]), Source: src}, nil
 }
 
 // parseMessage извлекает заголовки и текст (text/plain, иначе text/html без тегов).
@@ -417,7 +417,7 @@ func (c *Mail) draft(h *abi.Host, s Settings, a map[string]any) (abi.ExecResult,
 	if err := cl.Append(folder, []string{imap.DraftFlag, imap.SeenFlag}, c.now(), bytes.NewReader(raw)); err != nil {
 		return abi.ExecResult{}, fmt.Errorf("save draft: %w", err)
 	}
-	return abi.ExecResult{Result: map[string]any{"message_id": id, "folder": folder, "status": "draft saved, not sent"}, ResultRef: id,
+	return abi.ExecResult{Structured: map[string]any{"message_id": id, "folder": folder, "status": "draft saved, not sent"}, ResultRef: id,
 		Evidence: []abi.EvidenceItem{{Name: "draft.eml", MIME: "message/rfc822", Data: raw}}}, nil
 }
 
@@ -440,7 +440,7 @@ func (c *Mail) send(h *abi.Host, s Settings, a map[string]any) (abi.ExecResult, 
 			cl.Logout()
 		}
 	}
-	return abi.ExecResult{Result: res, ResultRef: id, Evidence: ev}, nil
+	return abi.ExecResult{Structured: res, ResultRef: id, Evidence: ev}, nil
 }
 
 var sentNames = []string{"Sent", "[Gmail]/Sent Mail", "Sent Items", "Sent Messages", "Отправленные", "INBOX.Sent"}
@@ -565,7 +565,8 @@ func findFolder(cl *client.Client, configured, attr string, names []string) (str
 }
 
 // Verify — проверка по независимому каналу: письмо с этим Message-ID есть
-// в «Отправленных» (send) или «Черновиках» (draft).
+// в «Отправленных» (send) или «Черновиках» (draft). Ошибка — проверить не
+// удалось (сеть, IMAP); not_confirmed — письма нет после всех попыток.
 func (c *Mail) Verify(ctx context.Context, h *abi.Host, r abi.VerifyRequest) (abi.VerifyResult, error) {
 	s, err := parseSettings(r.Settings)
 	if err != nil {
@@ -584,7 +585,7 @@ func (c *Mail) Verify(ctx context.Context, h *abi.Host, r abi.VerifyRequest) (ab
 			select {
 			case <-time.After(time.Duration(s.VerifyDelayMS) * time.Millisecond):
 			case <-ctx.Done():
-				return abi.VerifyResult{Status: abi.Unverified, Method: method, Detail: ctx.Err().Error()}, nil
+				return abi.VerifyResult{}, ctx.Err()
 			}
 		}
 		found, raw, err := c.findByID(h, s, cfg, attr, names, r.ResultRef)
@@ -598,9 +599,9 @@ func (c *Mail) Verify(ctx context.Context, h *abi.Host, r abi.VerifyRequest) (ab
 		}
 	}
 	if lastErr != nil {
-		return abi.VerifyResult{Status: abi.Unverified, Method: method, Detail: lastErr.Error()}, nil
+		return abi.VerifyResult{}, lastErr
 	}
-	return abi.VerifyResult{Status: abi.Failed, Method: method, Detail: "message " + r.ResultRef + " not found"}, nil
+	return abi.VerifyResult{Status: abi.NotConfirmed, Method: method, Detail: "message " + r.ResultRef + " not found"}, nil
 }
 
 func (c *Mail) findByID(h *abi.Host, s Settings, cfg, attr string, names []string, id string) (bool, []byte, error) {

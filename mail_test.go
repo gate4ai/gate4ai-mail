@@ -51,7 +51,7 @@ func TestListReadInbound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	msgs := res.Result.(map[string]any)["messages"].([]any)
+	msgs := res.Structured.(map[string]any)["messages"].([]any)
 	if len(msgs) != 2 {
 		t.Fatal(len(msgs))
 	}
@@ -64,7 +64,7 @@ func TestListReadInbound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := res.Result.(map[string]any)
+	m := res.Structured.(map[string]any)
 	if !strings.Contains(m["body"].(string), "payout@attacker.test") || strings.Contains(m["body"].(string), "<b>") || m["message_id"] != "<inj-1@attacker.test>" {
 		t.Fatal(m)
 	}
@@ -101,7 +101,7 @@ func TestSendVerifiedBySentFolder(t *testing.T) {
 	srv.AutoSaveSent = false
 	res, _ = h.Execute(c, "send", args)
 	v, _ = h.Verify(c, "send", nil, res)
-	if v.Status != abi.Failed {
+	if v.Status != abi.NotConfirmed {
 		t.Fatalf("%+v", v)
 	}
 	// sent_copy: client — коннектор сам кладёт копию.
